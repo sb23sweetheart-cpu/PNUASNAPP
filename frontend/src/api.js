@@ -1,6 +1,6 @@
 // src/api.js — PNU ASN complete API client
 const BASE = process.env.REACT_APP_API_URL || 'https://pnuasnapp.onrender.com';
-const SERVER = BASE.replace('/api', '');
+const SERVER = BASE.replace('/api', 'https://pnuasnapp.onrender.com');
 
 const token = () => localStorage.getItem('pnu_token');
 
