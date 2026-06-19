@@ -160,12 +160,6 @@ export default function App() {
   // Hide bottom nav only when inside an open chat window — not on the contacts list
   const hiddenNav = (page === 'chat' || page === 't-chat') && inChatWindow;
 
-  // Each nav item width (px) — must match the min-width in CSS (.nav-item = 52px + 24px padding = 76px total)
-  const NAV_ITEM_W = 76;
-  const DOCK_PAD   = 10; // horizontal padding on the dock (padding: 6px 10px)
-  const DOCK_GAP   = 2;  // gap between nav items
-  const pillLeft   = DOCK_PAD + safeIndex * (NAV_ITEM_W + DOCK_GAP);
-
   const isHome = page === 'home';
 
   return (
@@ -185,45 +179,97 @@ export default function App() {
 
       {/* ── Pill Dock ── */}
       {!hiddenNav && (
-        <nav className="bottom-nav" style={{
-          bottom: `max(18px, calc(env(safe-area-inset-bottom) + 8px))`,
-          position: 'fixed',
-        }}>
-          {/* Sliding pill indicator */}
-          <div style={{
-            position: 'absolute',
-            top: 6, bottom: 6,
-            width: NAV_ITEM_W,
-            left: pillLeft,
-            borderRadius: 999,
-            background: 'rgba(var(--accent-rgb), 0.13)',
-            border: '1px solid rgba(var(--accent-rgb), 0.28)',
-            boxShadow: '0 1px 0 rgba(255,255,255,0.65) inset, 0 2px 8px rgba(var(--accent-rgb),0.18)',
-            transition: 'left 0.38s cubic-bezier(0.34,1.4,0.64,1)',
-            pointerEvents: 'none',
-            zIndex: 0,
-          }} />
-
-          {NAV.map(n => (
-            <button
-              key={n.id}
-              className={`nav-item ${activeNav === n.id ? 'active' : ''}`}
-              onClick={() => navigate(n.id)}
-              style={{ position: 'relative', zIndex: 1, width: NAV_ITEM_W }}
-            >
-              <div className="nav-icon-wrap">
-                {n.icon}
-                {n.type && (badges[n.type] || 0) > 0 && (
-                  <span className="notif-badge">
-                    {badges[n.type] > 9 ? '9+' : badges[n.type]}
-                  </span>
-                )}
-              </div>
-              {n.label}
-            </button>
-          ))}
-        </nav>
+        <BottomNav
+          nav={NAV}
+          activeNav={activeNav}
+          safeIndex={safeIndex}
+          badges={badges}
+          onNavigate={navigate}
+        />
       )}
     </div>
+  );
+}
+
+// ── BOTTOM NAV (separate component so the pill-measuring effect has
+//    a clean lifecycle tied to its own mount/update, not the whole App) ──
+function BottomNav({ nav, activeNav, safeIndex, badges, onNavigate }) {
+  const navRef = useRef(null);
+  const [pillStyle, setPillStyle] = useState({ left: 0, width: 0 });
+
+  useEffect(() => {
+    function measurePill() {
+      const container = navRef.current;
+      if (!container) return;
+      const items = container.querySelectorAll('.nav-item');
+      const activeEl = items[safeIndex];
+      if (!activeEl) return;
+      const containerRect = container.getBoundingClientRect();
+      const itemRect = activeEl.getBoundingClientRect();
+      setPillStyle({
+        left: itemRect.left - containerRect.left,
+        width: itemRect.width,
+      });
+    }
+
+    // Measure now, and again after the font/emoji has definitely painted
+    // (fonts loading async can shift widths slightly on first render).
+    measurePill();
+    const raf = requestAnimationFrame(measurePill);
+
+    window.addEventListener('resize', measurePill);
+    return () => {
+      window.removeEventListener('resize', measurePill);
+      cancelAnimationFrame(raf);
+    };
+  }, [safeIndex, nav]);
+
+  return (
+    <nav
+      className="bottom-nav"
+      ref={navRef}
+      style={{
+        bottom: `max(18px, calc(env(safe-area-inset-bottom) + 8px))`,
+        position: 'fixed',
+      }}
+    >
+      {/* Sliding pill indicator — measured from real rendered widths,
+          so it stays correct no matter how narrow the screen is */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 6,
+          bottom: 6,
+          width: pillStyle.width,
+          left: pillStyle.left,
+          borderRadius: 999,
+          background: 'rgba(var(--accent-rgb), 0.13)',
+          border: '1px solid rgba(var(--accent-rgb), 0.28)',
+          boxShadow: '0 1px 0 rgba(255,255,255,0.65) inset, 0 2px 8px rgba(var(--accent-rgb),0.18)',
+          transition: 'left 0.38s cubic-bezier(0.34,1.4,0.64,1), width 0.38s cubic-bezier(0.34,1.4,0.64,1)',
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
+
+      {nav.map(n => (
+        <button
+          key={n.id}
+          className={`nav-item ${activeNav === n.id ? 'active' : ''}`}
+          onClick={() => onNavigate(n.id)}
+          style={{ position: 'relative', zIndex: 1 }}
+        >
+          <div className="nav-icon-wrap">
+            {n.icon}
+            {n.type && (badges[n.type] || 0) > 0 && (
+              <span className="notif-badge">
+                {badges[n.type] > 9 ? '9+' : badges[n.type]}
+              </span>
+            )}
+          </div>
+          <span className="nav-label">{n.label}</span>
+        </button>
+      ))}
+    </nav>
   );
 }
