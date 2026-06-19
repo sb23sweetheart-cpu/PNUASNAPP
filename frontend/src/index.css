@@ -6,6 +6,9 @@
 * { scrollbar-width: none; -ms-overflow-style: none; }
 *::-webkit-scrollbar { display: none; }
 
+html, body {
+  overscroll-behavior-y: contain;
+}
 /* ── LIGHT THEME ───────────────────────────────────────────────── */
 :root {
   --bg:            #EEF1FA;
